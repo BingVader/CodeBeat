@@ -2,6 +2,15 @@ import * as vscode from 'vscode';
 import * as crypto from 'crypto';
 import { PollResult, Track } from './types';
 
+export function getRedirectUri(): string {
+    const configured = vscode.workspace.getConfiguration('codebeat').get<string>('redirectUri')?.trim();
+    if (configured) {
+        return configured;
+    }
+    const scheme = vscode.env.uriScheme || 'vscode';
+    return `${scheme}://BingVader.codebeat/callback`;
+}
+
 export const REDIRECT_URI = 'vscode://BingVader.codebeat/callback';
 const SCOPES = 'user-read-currently-playing user-read-playback-state user-modify-playback-state user-read-private';
 const REQUIRED_SCOPES = SCOPES.split(' ');
@@ -9,6 +18,9 @@ const KEY_SCOPES = 'codebeat.grantedScopes';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const SECRET_CLIENT_ID = 'codebeat.clientId';
 const SECRET_REFRESH = 'codebeat.refreshToken';
+const SECRET_VERIFIER = 'codebeat.pkceVerifier';
+const SECRET_STATE = 'codebeat.pkceState';
+const SECRET_REDIRECT = 'codebeat.pkceRedirect';
 
 const b64url = (buf: Buffer) =>
     buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -19,6 +31,7 @@ export class SpotifyAuth {
     private expiresAt = 0;
     private verifier?: string;
     private state?: string;
+    private pendingRedirectUri?: string;
     private refreshing?: Promise<string | null>;
     private readonly changed = new vscode.EventEmitter<void>();
     readonly onDidChange = this.changed.event;
@@ -52,12 +65,17 @@ export class SpotifyAuth {
         }
         this.verifier = b64url(crypto.randomBytes(64));
         this.state = b64url(crypto.randomBytes(16));
+        this.pendingRedirectUri = getRedirectUri();
+        await this.ctx.secrets.store(SECRET_VERIFIER, this.verifier);
+        await this.ctx.secrets.store(SECRET_STATE, this.state);
+        await this.ctx.secrets.store(SECRET_REDIRECT, this.pendingRedirectUri);
+
         const challenge = b64url(crypto.createHash('sha256').update(this.verifier).digest());
         const params = new URLSearchParams({
             response_type: 'code',
             client_id: clientId,
             scope: SCOPES,
-            redirect_uri: REDIRECT_URI,
+            redirect_uri: this.pendingRedirectUri,
             code_challenge_method: 'S256',
             code_challenge: challenge,
             state: this.state
@@ -76,7 +94,12 @@ export class SpotifyAuth {
             return false;
         }
         const code = query.get('code');
-        if (!code || !this.verifier || query.get('state') !== this.state) {
+        this.verifier ??= await this.ctx.secrets.get(SECRET_VERIFIER);
+        this.state ??= await this.ctx.secrets.get(SECRET_STATE);
+        this.pendingRedirectUri ??= await this.ctx.secrets.get(SECRET_REDIRECT);
+
+        const stateParam = query.get('state');
+        if (!code || !this.verifier || (stateParam && this.state && stateParam !== this.state)) {
             vscode.window.showErrorMessage(
                 'CodeBeat: login response did not match a pending login. Run "CodeBeat: Login to Spotify" again.'
             );
@@ -86,15 +109,27 @@ export class SpotifyAuth {
         if (!clientId) {
             return false;
         }
+
+        // Determine redirect URI: if the incoming callback URI matches a specific editor scheme, use that.
+        let redirectUri = this.pendingRedirectUri || getRedirectUri();
+        if (uri.scheme && (uri.scheme === 'vscode' || uri.scheme.includes('antigravity') || uri.scheme.endsWith('-ide'))) {
+            redirectUri = `${uri.scheme}://${uri.authority}${uri.path}`;
+        }
+
         const data = await this.postToken({
             grant_type: 'authorization_code',
             code,
-            redirect_uri: REDIRECT_URI,
+            redirect_uri: redirectUri,
             client_id: clientId,
             code_verifier: this.verifier
         });
         this.verifier = undefined;
         this.state = undefined;
+        this.pendingRedirectUri = undefined;
+        await this.ctx.secrets.delete(SECRET_VERIFIER);
+        await this.ctx.secrets.delete(SECRET_STATE);
+        await this.ctx.secrets.delete(SECRET_REDIRECT);
+
         if (!data || data === 'revoked') {
             return false;
         }

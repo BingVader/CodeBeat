@@ -2,22 +2,23 @@ import * as vscode from 'vscode';
 import { BeatService } from './beat';
 import { Controller } from './controller';
 import { LyricsService } from './lyrics';
-import { REDIRECT_URI, SpotifyAuth } from './spotify';
+import { getRedirectUri, SpotifyAuth } from './spotify';
 import { ThemeManager } from './theme';
 import { CodeBeatView, VIEW_ID } from './view';
 
 let controller: Controller | undefined;
 
 async function setupClientId(auth: SpotifyAuth): Promise<boolean> {
+    const redirectUri = getRedirectUri();
     const choice = await vscode.window.showInformationMessage(
-        `CodeBeat needs a free Spotify app. In the Spotify Developer Dashboard create an app and add this Redirect URI: ${REDIRECT_URI}`,
+        `CodeBeat needs a free Spotify app. In the Spotify Developer Dashboard create an app and add this Redirect URI: ${redirectUri}`,
         'Copy Redirect URI',
         'Open Dashboard',
         'I have my Client ID'
     );
     if (choice === 'Copy Redirect URI') {
-        await vscode.env.clipboard.writeText(REDIRECT_URI);
-        vscode.window.showInformationMessage('Redirect URI copied.');
+        await vscode.env.clipboard.writeText(redirectUri);
+        vscode.window.showInformationMessage(`Redirect URI copied: ${redirectUri}`);
     } else if (choice === 'Open Dashboard') {
         await vscode.env.openExternal(vscode.Uri.parse('https://developer.spotify.com/dashboard'));
     } else if (!choice) {
@@ -38,6 +39,26 @@ async function setupClientId(auth: SpotifyAuth): Promise<boolean> {
     return true;
 }
 
+async function handleManualCallbackInput(auth: SpotifyAuth, input: string): Promise<boolean> {
+    const raw = input.trim();
+    if (!raw) {
+        return false;
+    }
+    try {
+        let uri: vscode.Uri;
+        if (raw.includes('://')) {
+            uri = vscode.Uri.parse(raw);
+        } else {
+            const query = raw.startsWith('?') ? raw.substring(1) : (raw.startsWith('code=') ? raw : `code=${raw}`);
+            uri = vscode.Uri.parse(`http://localhost/callback?${query}`);
+        }
+        return await auth.handleCallback(uri);
+    } catch (e: any) {
+        vscode.window.showErrorMessage(`CodeBeat: Invalid callback URL format: ${e?.message || e}`);
+        return false;
+    }
+}
+
 export async function activate(context: vscode.ExtensionContext) {
     const auth = new SpotifyAuth(context);
     const lyrics = new LyricsService(context);
@@ -51,7 +72,22 @@ export async function activate(context: vscode.ExtensionContext) {
         if (!(await auth.getClientId()) && !(await setupClientId(auth))) {
             return;
         }
-        await auth.beginLogin();
+        const started = await auth.beginLogin();
+        if (started) {
+            const redirectUri = getRedirectUri();
+            void vscode.window.showInformationMessage(
+                `CodeBeat: Authorizing in browser. Ensure '${redirectUri}' is in your Spotify Dashboard Redirect URIs.`,
+                'Copy Redirect URI',
+                'Paste Callback URL'
+            ).then(action => {
+                if (action === 'Copy Redirect URI') {
+                    void vscode.env.clipboard.writeText(redirectUri);
+                    void vscode.window.showInformationMessage(`Redirect URI copied: ${redirectUri}`);
+                } else if (action === 'Paste Callback URL') {
+                    void vscode.commands.executeCommand('codebeat.pasteCallback');
+                }
+            });
+        }
     };
 
     context.subscriptions.push(
@@ -67,6 +103,22 @@ export async function activate(context: vscode.ExtensionContext) {
         }),
         vscode.commands.registerCommand('codebeat.setup', () => setupClientId(auth)),
         vscode.commands.registerCommand('codebeat.login', login),
+        vscode.commands.registerCommand('codebeat.pasteCallback', async () => {
+            const redirectUri = getRedirectUri();
+            const input = await vscode.window.showInputBox({
+                title: 'CodeBeat: Paste Spotify Callback URL',
+                prompt: `Paste the URL from your browser address bar after logging into Spotify`,
+                placeHolder: `${redirectUri}?code=...&state=...`,
+                ignoreFocusOut: true
+            });
+            if (!input) {
+                return;
+            }
+            if (await handleManualCallbackInput(auth, input)) {
+                vscode.window.showInformationMessage('CodeBeat: Spotify connected!');
+                ctl.kick();
+            }
+        }),
         vscode.commands.registerCommand('codebeat.logout', async () => {
             await auth.logout();
             await theme.restore();

@@ -42,6 +42,11 @@
         "category": "CodeBeat"
       },
       {
+        "command": "codebeat.pasteCallback",
+        "title": "Paste Spotify Callback URL",
+        "category": "CodeBeat"
+      },
+      {
         "command": "codebeat.logout",
         "title": "Logout",
         "category": "CodeBeat",
@@ -176,6 +181,11 @@
           "minimum": 2,
           "maximum": 30,
           "description": "How often to ask Spotify what is playing. Higher values are kinder to the free API rate limit."
+        },
+        "codebeat.redirectUri": {
+          "type": "string",
+          "default": "",
+          "description": "Optional custom Spotify OAuth Redirect URI override. Defaults to your editor scheme (e.g. antigravity-ide://BingVader.codebeat/callback or vscode://BingVader.codebeat/callback)."
         }
       }
     }

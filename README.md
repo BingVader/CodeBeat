@@ -18,9 +18,13 @@ Lyrics come from [LRCLIB](https://lrclib.net) (free, no key). Playback comes fro
 ## 🚀 Setup (about 2 minutes)
 
 1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and **Create app**.
-2. Add this **Redirect URI**: `vscode://BingVader.codebeat/callback`
+2. Add your editor's **Redirect URI** under app settings:
+   - For **Antigravity**: `antigravity-ide://BingVader.codebeat/callback`
+   - For **VS Code**: `vscode://BingVader.codebeat/callback`
+   *(Tip: you can add both redirect URIs to your Spotify app settings!)*
 3. Copy the **Client ID**. (No Client Secret is needed: CodeBeat uses PKCE.)
-4. In VS Code run **CodeBeat: Login to Spotify**, paste the Client ID when asked, and approve in the browser.
+4. In your editor run **CodeBeat: Login to Spotify**, paste the Client ID when asked, and approve in the browser.
+   *(If your browser does not redirect automatically, use the **CodeBeat: Paste Spotify Callback URL** command.)*
 5. Play a song on Spotify and open the CodeBeat icon in the Activity Bar.
 
 ## 🎚️ Settings
