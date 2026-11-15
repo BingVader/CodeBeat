@@ -1,52 +1,183 @@
 {
-  "name": "vs-lyrics",
-  "displayName": "VS Lyrics",
-  "description": "Play lyrics on vs code from your current playing music",
-  "version": "0.0.1",
+  "name": "codebeat",
+  "displayName": "CodeBeat",
+  "description": "Synced Spotify lyrics in VS Code, with a theme that follows your song's album art and a beat-reactive lyrics panel.",
+  "version": "0.1.0",
   "publisher": "BingVader",
+  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BingVader/VS-Lyricist.git"
+    "url": "https://github.com/BingVader/CodeBeat.git"
   },
   "engines": {
-    "vscode": "^1.118.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Themes"
+  ],
+  "keywords": [
+    "spotify",
+    "lyrics",
+    "music",
+    "theme",
+    "lrclib"
   ],
   "activationEvents": [
-    "onView:spotify-lyrics-view",
-    "onCommand:spotify-lyrics.login"
+    "onStartupFinished",
+    "onUri"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "spotify-lyrics.login",
-        "title": "Spotify Lyrics: Login"
+        "command": "codebeat.setup",
+        "title": "Setup Spotify Client ID",
+        "category": "CodeBeat",
+        "icon": "$(gear)"
       },
       {
-        "command": "spotify-lyrics.setup",
-        "title": "Spotify Lyrics: Setup Credentials"
+        "command": "codebeat.login",
+        "title": "Login to Spotify",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.logout",
+        "title": "Logout",
+        "category": "CodeBeat",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "codebeat.showPanel",
+        "title": "Show Lyrics Panel",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.playPause",
+        "title": "Play / Pause (Premium)",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.next",
+        "title": "Next Track (Premium)",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.previous",
+        "title": "Previous Track (Premium)",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.clearLoop",
+        "title": "Clear Loop Selection",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.offsetDown",
+        "title": "Lyrics Earlier (-0.5s)",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.offsetUp",
+        "title": "Lyrics Later (+0.5s)",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.offsetReset",
+        "title": "Reset Lyrics Offset",
+        "category": "CodeBeat"
+      },
+      {
+        "command": "codebeat.cycleTheme",
+        "title": "Cycle Dynamic Theme (Off / Subtle / Vibrant)",
+        "category": "CodeBeat",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "codebeat.restoreTheme",
+        "title": "Restore My Original Colors",
+        "category": "CodeBeat"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "codebeat.cycleTheme",
+          "when": "view == codebeat-view",
+          "group": "navigation@1"
+        },
+        {
+          "command": "codebeat.setup",
+          "when": "view == codebeat-view",
+          "group": "navigation@2"
+        },
+        {
+          "command": "codebeat.logout",
+          "when": "view == codebeat-view",
+          "group": "navigation@3"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "spotify-lyrics-sidebar",
-          "title": "Spotify Lyrics",
+          "id": "codebeat-sidebar",
+          "title": "CodeBeat",
           "icon": "$(music)"
         }
       ]
     },
     "views": {
-      "spotify-lyrics-sidebar": [
+      "codebeat-sidebar": [
         {
           "type": "webview",
-          "id": "spotify-lyrics-view",
+          "id": "codebeat-view",
           "name": "Lyrics"
         }
       ]
+    },
+    "configuration": {
+      "title": "CodeBeat",
+      "properties": {
+        "codebeat.theme.mode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "subtle",
+            "vibrant"
+          ],
+          "enumDescriptions": [
+            "Never touch your editor colors.",
+            "Tint accents only (status bar, cursor, focus ring, active tab).",
+            "Also tint the title bar, activity bar, side bar and selection with the song colors."
+          ],
+          "default": "vibrant",
+          "description": "Recolor VS Code from the current album art. Your original colors are restored on pause, logout and exit."
+        },
+        "codebeat.theme.restoreAfterSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 5,
+          "description": "Restore your original colors after playback has been paused or stopped this long."
+        },
+        "codebeat.beatPulse": {
+          "type": "boolean",
+          "default": true,
+          "description": "Pulse the album art, glow and visualizer in the lyrics panel on the beat. The beat is detected automatically from a 30 s preview clip."
+        },
+        "codebeat.statusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the current lyric line in the status bar."
+        },
+        "codebeat.pollIntervalSeconds": {
+          "type": "number",
+          "default": 4,
+          "minimum": 2,
+          "maximum": 30,
+          "description": "How often to ask Spotify what is playing. Higher values are kinder to the free API rate limit."
+        }
+      }
     }
   },
   "scripts": {
@@ -57,10 +188,13 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
+  "dependencies": {
+    "jpeg-js": "^0.4.4"
+  },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.118.0",
+    "@types/vscode": "1.90.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.3",

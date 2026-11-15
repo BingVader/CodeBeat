@@ -1,68 +1,64 @@
-🎵 Spotify Synced Lyrics for VS Code
-Bring your Spotify listening experience directly into your workspace. This extension fetches real-time synced lyrics from LRCLIB and displays them in your VS Code sidebar, perfectly timed with your music.
+# 🥁 CodeBeat
 
-✨ Features
-Real-time Sync: Lyrics scroll automatically as the song plays.
+Synced Spotify lyrics in your VS Code sidebar, with a theme that follows your song and a lyrics panel that pulses on the beat.
 
-Sidebar Integration: Keep your lyrics visible without leaving your editor.
+Lyrics come from [LRCLIB](https://lrclib.net) (free, no key). Playback comes from your own free Spotify Developer app. No backend, no third-party server.
 
-Secure Storage: Your Spotify API keys are stored safely in the OS Keychain using VS Code's SecretStorage.
+## ✨ Features
 
-DIY Privacy: Use your own Spotify Developer credentials—no middleman servers.
+- **Synced lyrics** that scroll and highlight in time. Click a line to copy it.
+- **Dynamic theme.** VS Code takes on the colors of the current album art: status bar, cursor, focus ring and active tab, plus (in `vibrant` mode, the default) the title bar, activity bar, side bar and selection. Works on light and dark themes, never touches high-contrast themes, and your own colors are saved first and restored on pause, logout and exit.
+- **Automatic beat.** The panel pulses on the beat and shows a beat-driven visualizer. The tempo is detected automatically for every song, with no tapping needed (see "How the beat works").
+- **Playback controls (Spotify Premium).** Previous, play/pause and next buttons in the panel, plus the commands `CodeBeat: Play / Pause`, `Next Track` and `Previous Track` that you can bind to keys. Free accounts simply don't see the buttons.
+- **Seek and loop a portion (Spotify Premium).** Click the timeline to jump, or **drag across it to select a portion** that then loops. You can also click a lyric line to jump to it, or **Shift+click two lines** to loop from the first to the last. The loop shows as a chip under the timeline; click it or press Esc to clear. Free accounts can still click a line to copy it.
+- **Status bar lyrics.** The current line, always visible. Click to open the panel.
+- **Per-song offset.** If the lyrics are slightly early or late, nudge ±0.5 s. It is remembered for that song.
+- **Smooth and gentle on the API.** Progress is interpolated locally, polling is slow when the window is in the background, and `429` limits are respected.
 
-## 📥 Installation
-1. Download the latest `.vsix` from the [Releases Page](https://github.com/RAO-THOMAS/spotify-lyrics/releases).
-2. In VS Code, go to the Extensions view (`Ctrl+Shift+X`).
-3. Click the `...` menu and select **Install from VSIX...**
-4. Select the downloaded file.
+## 🚀 Setup (about 2 minutes)
 
+1. Open the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and **Create app**.
+2. Add this **Redirect URI**: `vscode://BingVader.codebeat/callback`
+3. Copy the **Client ID**. (No Client Secret is needed: CodeBeat uses PKCE.)
+4. In VS Code run **CodeBeat: Login to Spotify**, paste the Client ID when asked, and approve in the browser.
+5. Play a song on Spotify and open the CodeBeat icon in the Activity Bar.
 
-🚀 Setup Instructions
-Because this extension uses the Spotify API directly, you need to link it to your own Spotify Developer App.
+## 🎚️ Settings
 
-1. Create your Spotify App
-Go to the Spotify Developer Dashboard.
+| Setting | Default | |
+| --- | --- | --- |
+| `codebeat.theme.mode` | `vibrant` | `off` / `subtle` / `vibrant` |
+| `codebeat.theme.restoreAfterSeconds` | `60` | Restore your colors after this long paused or stopped |
+| `codebeat.beatPulse` | `true` | Pulse in the lyrics panel |
+| `codebeat.statusBar` | `true` | Current line in the status bar |
+| `codebeat.pollIntervalSeconds` | `4` | Raise it if you hit rate limits |
 
-Click Create App.
+Useful commands: **Clear Loop Selection**, **Cycle Dynamic Theme**, **Restore My Original Colors**, **Lyrics Earlier/Later**, **Play / Pause**, **Next / Previous Track**.
 
-Set the App Name and Description (e.g., "My VS Code Lyrics").
+## 🥁 How the beat works
 
-Crucial: Add the following to your Redirect URIs:
-vscode://BingVader.spotify-lyrics/callback
+Spotify removed tempo and beat data from its free API for new apps, so CodeBeat works it out itself:
 
-Save your changes and copy your Client ID and Client Secret.
+1. It fetches the free 30 second **preview clip** of the song (Deezer, with iTunes as a fallback). Nothing is stored; it is used only for analysis.
+2. The panel analyses the clip's audio for the **tempo** (BPM). This is accurate for most songs.
+3. To place the beat on the song's timeline it uses the **synced lyric timestamps**: it locates where the clip sits in the song and cross-checks against the lyric rhythm.
+4. The result is cached per song, so each song is analysed once.
 
-2. Configure the Extension
-Open VS Code.
+How sure it is about the exact beat position shows in the pulse strength. When tempo and position agree (hover the ♩ label to see), the pulse is full strength; when it knows the tempo but not where the beats fall (for example songs with heavily syncopated vocals), it pulses gently instead of guessing. You normally never touch it: the **Fix beat** button only appears when detection could not lock onto the beat (no preview, no synced lyrics, or heavily syncopated vocals), and then tapping along sets it, which is remembered. To correct a song that looks wrong, click the ♩ label to reveal the button.
 
-Press Ctrl + Shift + P (or Cmd + Shift + P on Mac).
+The theme changes once per song, never on every beat, so your `settings.json` is not rewritten constantly. The beat visuals live in the panel.
 
-Type and select: Spotify Lyrics: Setup Credentials.
+## ⚠️ Free Spotify API limits
 
-Paste your Client ID and Client Secret when prompted. (They are saved securely on your machine).
+- Development-mode apps are limited to a small number of allow-listed users, and Spotify may require the app owner to have Premium. Add yourself under **User Management** in the dashboard.
+- Playback control (play/pause/next/previous) is a Spotify Premium feature and needs an active Spotify device. If you logged in with an older version, CodeBeat asks you to log in once more to grant the extra permission. Free accounts stay read-only.
 
-3. Login
-Press Ctrl + Shift + P.
+## 🔒 Privacy
 
-Run Spotify Lyrics: Login.
+Your Client ID and tokens are stored in VS Code's SecretStorage (OS keychain). Requests go only to Spotify, LRCLIB (lyrics) and Deezer / iTunes (the 30 s preview clip used for beat detection).
 
-Authorize the app in the browser window that opens.
+## 📜 License
 
-🛠️ Usage
-Open the Spotify Lyrics icon in the Activity Bar (Sidebar).
-
-Play any song on your Spotify Desktop or Mobile app.
-
-The lyrics will automatically load and start syncing.
-
-🔒 Privacy & Security
-This extension is built with security in mind:
-
-No Backend: Your data never touches a third-party server. It goes directly from Spotify/LRCLIB to your machine.
-
-Local Secrets: We use context.secrets to ensure your Client Secret is never stored in plain text or uploaded to GitHub.
-
-📜 License
-Distributed under the MIT License. See LICENSE for more information.
+MIT. See [LICENSE](LICENSE).
 
 Developed with ❤️ by [BingVader](https://github.com/BingVader)

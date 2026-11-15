@@ -1,0 +1,322 @@
+:root {
+    --accent: #1db954;
+    --accent2: #1ed7a0;
+    --dark: #0d1f15;
+    --beat: 0;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    font-family: var(--vscode-font-family);
+    color: var(--vscode-foreground);
+    /* The panel takes on the song's color: a deep tint on dark themes, a pale one on light. */
+    background: color-mix(in srgb, var(--dark) 55%, var(--vscode-sideBar-background));
+    position: relative;
+    transition: background 0.8s;
+}
+body.vscode-light {
+    background: color-mix(in srgb, var(--accent) 12%, var(--vscode-sideBar-background));
+}
+
+/* ---------- Ambient background ---------- */
+#bg {
+    position: fixed;
+    inset: -40px;
+    background-size: cover;
+    background-position: center;
+    filter: blur(48px) saturate(1.4);
+    opacity: calc(0.34 + var(--beat) * 0.16);
+    transition: background-image 0.6s;
+    pointer-events: none;
+}
+
+#bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 55%),
+        radial-gradient(circle at 85% 90%, color-mix(in srgb, var(--accent2) 35%, transparent), transparent 55%);
+}
+
+#app {
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+[hidden] { display: none !important; }
+
+/* ---------- Empty states ---------- */
+#empty {
+    margin: auto;
+    padding: 24px;
+    text-align: center;
+    max-width: 260px;
+}
+
+#empty-icon {
+    font-size: 40px;
+    color: var(--accent);
+    animation: float 3s ease-in-out infinite;
+}
+
+#empty h2 { margin: 8px 0 6px; font-weight: 600; }
+#empty p { margin: 0 0 16px; opacity: 0.7; line-height: 1.5; font-size: 0.9rem; }
+
+button {
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 6px 14px;
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+    transition: transform 0.15s, background 0.15s;
+}
+button:hover { background: var(--vscode-button-hoverBackground); }
+button:active { transform: scale(0.96); }
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+/* ---------- Player ---------- */
+#player {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 16px 16px 10px;
+    gap: 12px;
+}
+
+#card {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+#art-wrap {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+    transform: scale(calc(1 + var(--beat) * 0.06));
+    box-shadow: 0 0 calc(10px + var(--beat) * 26px) color-mix(in srgb, var(--accent) calc(25% + var(--beat) * 55%), transparent);
+    overflow: hidden;
+}
+
+#art { width: 100%; height: 100%; object-fit: cover; display: block; }
+#art:not([src]) { visibility: hidden; }
+
+#meta { min-width: 0; }
+#title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#artist {
+    opacity: 0.7;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Generous hit area around a thin bar, so the timeline is easy to click and drag. */
+#seek {
+    padding: 7px 0;
+    margin: -7px 0 -4px;
+    touch-action: none;
+    user-select: none;
+}
+#seek.can-seek { cursor: pointer; }
+#bar {
+    position: relative;
+    height: 4px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--vscode-foreground) 15%, transparent);
+    overflow: hidden;
+    transition: height 0.12s;
+}
+#seek.can-seek:hover #bar, #seek.dragging #bar { height: 7px; }
+#fill {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transform-origin: left;
+    transform: scaleX(0);
+}
+/* The selected portion, drawn behind the progress fill. */
+#loop-range {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    display: none;
+    background: color-mix(in srgb, var(--accent2) 55%, transparent);
+    outline: 1px solid var(--accent2);
+    outline-offset: -1px;
+}
+#times {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.75rem;
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+}
+#loop-chip {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--accent2);
+    background: color-mix(in srgb, var(--accent2) 16%, transparent);
+}
+#loop-chip:hover { background: color-mix(in srgb, var(--accent2) 28%, transparent); }
+
+/* ---------- Transport (Premium) ---------- */
+#transport {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+}
+
+button.icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: var(--vscode-foreground);
+    background: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+}
+button.icon:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+button.icon.big {
+    width: 42px;
+    height: 42px;
+    color: #fff;
+    background: var(--accent);
+}
+button.icon.big:hover { background: color-mix(in srgb, var(--accent) 85%, #fff); }
+button.icon:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
+button.icon:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------- Beat visualizer ---------- */
+#viz {
+    display: block;
+    width: 100%;
+    height: 34px;
+    opacity: 0.9;
+}
+
+/* ---------- Lyrics ---------- */
+#lyrics {
+    position: relative;
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding: 40% 6px 40% 0;
+    -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+    mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+}
+#lyrics::-webkit-scrollbar { display: none; }
+
+.line {
+    padding: 7px 0;
+    font-size: 1.15rem;
+    line-height: 1.35;
+    font-weight: 600;
+    cursor: pointer;
+    transform-origin: left center;
+    transform: scale(0.96);
+    opacity: max(0.18, calc(1 - var(--d, 5) * 0.22));
+    filter: blur(calc(max(0, var(--d, 5) - 1) * 0.35px));
+    transition: opacity 0.35s, transform 0.35s, filter 0.35s, color 0.35s;
+}
+.line:hover { opacity: max(0.7, calc(1 - var(--d, 5) * 0.22)); filter: none; }
+.line.active {
+    color: var(--accent);
+    transform: scale(1.06);
+    text-shadow: 0 0 calc(var(--beat) * 18px) color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.line.copied { color: var(--accent2); }
+/* Lines inside the selected portion get a marker; a pending range start is underlined. */
+.line.in-loop {
+    box-shadow: inset 2px 0 0 var(--accent2);
+    padding-left: 10px;
+}
+.line.range-start { text-decoration: underline dotted var(--accent2); text-underline-offset: 4px; }
+
+.plain-lyrics .line {
+    opacity: 0.85;
+    filter: none;
+    transform: none;
+    font-weight: 500;
+    font-size: 1rem;
+    cursor: default;
+}
+
+.note {
+    text-align: center;
+    opacity: 0.6;
+    padding: 12px 8px;
+    line-height: 1.5;
+}
+
+.skeleton { display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
+.skeleton div {
+    height: 16px;
+    border-radius: 8px;
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--vscode-foreground) 8%, transparent),
+        color-mix(in srgb, var(--vscode-foreground) 20%, transparent),
+        color-mix(in srgb, var(--vscode-foreground) 8%, transparent));
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+}
+.skeleton div:nth-child(2n) { width: 70%; }
+.skeleton div:nth-child(3n) { width: 85%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ---------- Tools ---------- */
+#tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+}
+#tools button { padding: 3px 10px; }
+#off-label { min-width: 38px; text-align: center; opacity: 0.8; cursor: pointer; }
+.sep { flex: 1; }
+#bpm { opacity: 0.7; min-width: 52px; text-align: right; }
+#bpm.clickable { cursor: pointer; }
+#bpm.clickable:hover { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    #empty-icon, .skeleton div { animation: none; }
+    .line, #bg, #art-wrap { transition: none; }
+}
