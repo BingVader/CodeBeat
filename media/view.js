@@ -84,8 +84,10 @@
             : 'Seeking needs Spotify Premium';
         $('t-dur').textContent = fmt(s.durationMs);
         renderLoop();
-        $('icon-pause').hidden = !s.isPlaying;
-        $('icon-play').hidden = s.isPlaying;
+        $('icon-pause').toggleAttribute('hidden', !s.isPlaying);
+        $('icon-play').toggleAttribute('hidden', s.isPlaying);
+        $('play').title = s.isPlaying ? 'Pause' : 'Play';
+        $('play').setAttribute('aria-label', s.isPlaying ? 'Pause' : 'Play');
         el.offLabel.textContent = (s.offsetMs / 1000).toFixed(1) + 's';
         updateBeatLabel();
         maybeAnalyze();
@@ -257,7 +259,7 @@
         let beatValue = 0;
         let offValue = 0;
         const b = state.beat;
-        if (state.beatPulse && !reduceMotion && state.isPlaying) {
+        if (state.beatPulse && state.isPlaying) {
             if (b) {
                 const period = 60000 / b.bpm;
                 const phase = (((p - b.phaseMs) % period) + period) % period / period;
@@ -267,11 +269,16 @@
                 beatValue = Math.exp(-phase * 6) * amp;
                 offValue = Math.exp(-(((phase + 0.5) % 1)) * 6) * amp * 0.8;
             } else {
-                // No tempo known yet: give a soft kick whenever the lyric line changes.
-                beatValue = Math.exp(-(performance.now() - kickAt) / 450) * 0.6;
+                // No tempo known yet: give a soft kick whenever the lyric line changes,
+                // plus a gentle ambient pulse to keep the visualizer alive while playing.
+                const lyricKick = Math.exp(-(performance.now() - kickAt) / 450) * 0.6;
+                const idlePhase = (p % 500) / 500;
+                const idleKick = Math.exp(-idlePhase * 6) * 0.25;
+                beatValue = Math.max(lyricKick, idleKick);
+                offValue = Math.exp(-(((idlePhase + 0.5) % 1)) * 6) * 0.2;
             }
         }
-        drawViz(beatValue, offValue, state.isPlaying && !reduceMotion);
+        drawViz(beatValue, offValue, state.isPlaying);
         if (Math.abs(beatValue - lastBeatValue) > 0.01) {
             lastBeatValue = beatValue;
             root.style.setProperty('--beat', beatValue.toFixed(3));
@@ -421,11 +428,11 @@
         }
         const n = Math.max(12, Math.floor(W / (8 * dpr)));
         const gap = 3 * dpr;
-        const bw = (W - gap * (n - 1)) / n;
+        const bw = Math.max(2 * dpr, (W - gap * (n - 1)) / n);
         const t = performance.now();
         vizCtx.fillStyle = vizGrad;
         for (let i = 0; i < n; i++) {
-            const x = i / (n - 1);
+            const x = i / Math.max(1, n - 1);
             const wobble = playing ? 0.12 * (0.5 + 0.5 * Math.sin(t / 230 + i * 1.7)) : 0;
             // Low bars follow the kick on the beat, high bars the off-beat.
             const energy = (1 - x) * kick + x * off + wobble;
@@ -433,7 +440,7 @@
             const bx = i * (bw + gap);
             if (vizCtx.roundRect) {
                 vizCtx.beginPath();
-                vizCtx.roundRect(bx, H - h, bw, h, Math.min(bw / 2, 3 * dpr));
+                vizCtx.roundRect(bx, H - h, bw, h, Math.min(bw / 2, h / 2, 3 * dpr));
                 vizCtx.fill();
             } else {
                 vizCtx.fillRect(bx, H - h, bw, h);

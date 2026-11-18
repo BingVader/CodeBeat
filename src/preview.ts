@@ -53,15 +53,25 @@ async function download(url: string): Promise<PreviewAudio | undefined> {
 export async function fetchPreview(track: Track): Promise<PreviewAudio | undefined> {
     const artist = track.artist.split(', ')[0];
     const durationSec = track.durationMs / 1000;
+    const cleanName = track.name
+        .replace(/\(.*?\)|\[.*?\]/g, ' ')
+        .replace(/ - .*$/, ' ')
+        .trim();
 
     // Deezer
-    const dz = await getJson(
+    let dz = await getJson(
         `https://api.deezer.com/search?q=${encodeURIComponent(`artist:"${artist}" track:"${track.name}"`)}&limit=8`
     );
+    if ((!dz?.data || dz.data.length === 0) && cleanName && cleanName !== track.name) {
+        dz = await getJson(
+            `https://api.deezer.com/search?q=${encodeURIComponent(`artist:"${artist}" track:"${cleanName}"`)}&limit=8`
+        );
+    }
     const dzHits: any[] = Array.isArray(dz?.data) ? dz.data.filter((r: any) => r.preview) : [];
     const dzBest =
         dzHits.find(r => titleMatches(track.name, r.title) && Math.abs((r.duration ?? 0) - durationSec) <= 6) ??
-        dzHits.find(r => titleMatches(track.name, r.title));
+        dzHits.find(r => titleMatches(track.name, r.title)) ??
+        (cleanName ? dzHits.find(r => titleMatches(cleanName, r.title)) : undefined);
     if (dzBest) {
         const audio = await download(dzBest.preview);
         if (audio) {
@@ -70,13 +80,19 @@ export async function fetchPreview(track: Track): Promise<PreviewAudio | undefin
     }
 
     // iTunes fallback
-    const it = await getJson(
+    let it = await getJson(
         `https://itunes.apple.com/search?${new URLSearchParams({ term: `${artist} ${track.name}`, entity: 'song', limit: '8' }).toString()}`
     );
+    if ((!it?.results || it.results.length === 0) && cleanName && cleanName !== track.name) {
+        it = await getJson(
+            `https://itunes.apple.com/search?${new URLSearchParams({ term: `${artist} ${cleanName}`, entity: 'song', limit: '8' }).toString()}`
+        );
+    }
     const itHits: any[] = Array.isArray(it?.results) ? it.results.filter((r: any) => r.previewUrl) : [];
     const itBest =
         itHits.find(r => titleMatches(track.name, r.trackName) && Math.abs((r.trackTimeMillis ?? 0) / 1000 - durationSec) <= 6) ??
-        itHits.find(r => titleMatches(track.name, r.trackName));
+        itHits.find(r => titleMatches(track.name, r.trackName)) ??
+        (cleanName ? itHits.find(r => titleMatches(cleanName, r.trackName)) : undefined);
     if (itBest) {
         return download(itBest.previewUrl);
     }
